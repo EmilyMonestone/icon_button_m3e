@@ -106,18 +106,7 @@ class IconButtonM3E extends StatelessWidget {
         fixedSize: WidgetStateProperty.all(visual),
         padding: WidgetStateProperty.all(EdgeInsets.zero),
         shape: WidgetStateProperty.resolveWith(shapeFor),
-        backgroundColor: WidgetStateProperty.resolveWith((states) {
-          // Keep background transparent for standard/outlined; solid for filled/tonal.
-          switch (variant) {
-            case IconButtonM3EVariant.standard:
-            case IconButtonM3EVariant.outlined:
-              return Colors.transparent;
-            case IconButtonM3EVariant.filled:
-              return scheme.primary;
-            case IconButtonM3EVariant.tonal:
-              return scheme.secondaryContainer;
-          }
-        }),
+        backgroundColor: WidgetStateProperty.all(bg),
         foregroundColor: WidgetStateProperty.resolveWith((_) => fg),
         side: WidgetStateProperty.resolveWith((_) => side),
         // Animate pressed shape morph a bit.
