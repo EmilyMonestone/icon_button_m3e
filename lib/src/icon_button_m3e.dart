@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
 import 'enums.dart';
-import 'tokens.dart';
 
 /// Material 3 Expressive Icon Button
 ///
-/// - Sizes: XS (32), S (40), M (48), L (56), XL (64) [visual]
-/// - Tap target is always >= 48x48
+/// - Visual sizes are defined by [IconButtonM3ETokens.visual] (per size × width)
+/// - Tap target respects [IconButtonM3ETokens.target] with a minimum of 48×48 on XS/SM
 /// - Variants: standard, filled, tonal, outlined
-/// - Shapes: round (circle) or square (rounded rect)
+/// - Shapes: round (pill) or square (rounded rect). Toggle can flip shape when selected.
+/// - Widths: default, narrow, wide
 /// - Toggle: [isSelected] + [selectedIcon]
 class IconButtonM3E extends StatelessWidget {
   const IconButtonM3E({
@@ -18,8 +18,9 @@ class IconButtonM3E extends StatelessWidget {
     this.tooltip,
     this.semanticLabel,
     this.variant = IconButtonM3EVariant.standard,
-    this.size = IconButtonM3ESize.s,
-    this.shape = IconButtonM3EShape.round,
+    this.size = IconButtonM3ESize.sm,
+    this.shape = IconButtonM3EShapeVariant.round,
+    this.width = IconButtonM3EWidth.defaultWidth,
     this.isSelected,
     this.selectedIcon,
     this.enableFeedback,
@@ -31,7 +32,8 @@ class IconButtonM3E extends StatelessWidget {
   final String? semanticLabel;
   final IconButtonM3EVariant variant;
   final IconButtonM3ESize size;
-  final IconButtonM3EShape shape;
+  final IconButtonM3EShapeVariant shape;
+  final IconButtonM3EWidth width;
   final bool? isSelected;
   final Widget? selectedIcon;
   final bool? enableFeedback;
@@ -39,128 +41,108 @@ class IconButtonM3E extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final tokens = Theme.of(context).extension<IconButtonM3ETokens>() ??
-        const IconButtonM3ETokens.fallback();
 
-    final double visual = tokens.containerSize[size]!;
-    final double iconPx = tokens.iconSize[size]!;
+    final Size visual = size.visual(width);
+    final Size target = size.target(width);
+    final double iconPx = size.icon;
 
-    // Accessibility: ensure at least 48x48 tap target.
-    const double kMinHit = 48.0;
-    final double hit = visual >= kMinHit ? visual : kMinHit;
+    final bool selected = isSelected ?? false;
+    // Consider it a toggle control if selection can be represented.
+    final bool isToggle = isSelected != null || selectedIcon != null;
 
     // Colors per variant (selected tint for standard).
     Color bg;
     Color fg;
-    Color? outline;
+    BorderSide? side;
     switch (variant) {
       case IconButtonM3EVariant.standard:
         bg = Colors.transparent;
-        fg = (isSelected ?? false) ? scheme.primary : scheme.onSurfaceVariant;
-        outline = null;
+        fg = selected ? scheme.primary : scheme.onSurfaceVariant;
+        side = null;
         break;
       case IconButtonM3EVariant.filled:
         bg = scheme.primary;
         fg = scheme.onPrimary;
-        outline = null;
+        side = null;
         break;
       case IconButtonM3EVariant.tonal:
         bg = scheme.secondaryContainer;
         fg = scheme.onSecondaryContainer;
-        outline = null;
+        side = null;
         break;
       case IconButtonM3EVariant.outlined:
         bg = Colors.transparent;
         fg = scheme.primary;
-        outline = scheme.outline;
+        side = BorderSide(color: scheme.outline, width: 1);
         break;
     }
 
-    final OutlinedBorder shapeBorder = switch (shape) {
-      IconButtonM3EShape.round => const CircleBorder(),
-      IconButtonM3EShape.square => RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(tokens.squareRadius)),
-    };
-
-    Color overlayFor(Set<WidgetState> states) {
-      if (states.contains(WidgetState.dragged)) {
-        return fg.withValues(alpha: tokens.draggedOpacity);
-      }
-      if (states.contains(WidgetState.pressed)) {
-        return fg.withValues(alpha: tokens.pressedOpacity);
-      }
-      if (states.contains(WidgetState.focused)) {
-        return fg.withValues(alpha: tokens.focusOpacity);
-      }
-      if (states.contains(WidgetState.hovered)) {
-        return fg.withValues(alpha: tokens.hoverOpacity);
-      }
-      return Colors.transparent;
+    // Resolve shape radius based on states (pressed) and toggle/selection.
+    OutlinedBorder shapeFor(Set<WidgetState> states) {
+      final r = IconButtonM3EShapes.effectiveRadius(
+        size: size,
+        baseVariant: shape,
+        isToggle: isToggle,
+        isSelected: selected,
+        states: states,
+      );
+      return RoundedRectangleBorder(borderRadius: BorderRadius.circular(r));
     }
 
-    // Build the inner IconButton with a fixed (hit) size. Visual container drawn separately if needed.
-    Widget core = IconButton(
+    final Widget innerIcon = IconTheme.merge(
+      data: IconThemeData(size: iconPx, color: fg),
+      child: (selected && selectedIcon != null) ? selectedIcon! : icon,
+    );
+
+    final Widget button = IconButton(
       onPressed: onPressed,
       isSelected: isSelected,
       selectedIcon: selectedIcon,
-      icon: IconTheme.merge(
-        data: IconThemeData(size: iconPx, color: fg),
-        child:
-            (isSelected == true && selectedIcon != null) ? selectedIcon! : icon,
-      ),
+      icon: innerIcon,
       tooltip: tooltip,
       enableFeedback: enableFeedback,
       style: ButtonStyle(
-        fixedSize: WidgetStateProperty.all(Size.square(hit)),
-        // Keep background transparent here; we draw the visual container below when needed.
-        backgroundColor:
-            WidgetStateProperty.resolveWith((_) => Colors.transparent),
-        foregroundColor: WidgetStateProperty.resolveWith((_) => fg),
-        overlayColor: WidgetStateProperty.resolveWith(overlayFor),
-        shape: WidgetStateProperty.all(shapeBorder),
-        side: WidgetStateProperty.resolveWith((_) => outline != null
-            ? BorderSide(color: outline, width: tokens.outlineWidth)
-            : BorderSide.none),
+        // Visual (painted) size
+        fixedSize: WidgetStateProperty.all(visual),
         padding: WidgetStateProperty.all(EdgeInsets.zero),
+        shape: WidgetStateProperty.resolveWith(shapeFor),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          // Keep background transparent for standard/outlined; solid for filled/tonal.
+          switch (variant) {
+            case IconButtonM3EVariant.standard:
+            case IconButtonM3EVariant.outlined:
+              return Colors.transparent;
+            case IconButtonM3EVariant.filled:
+              return scheme.primary;
+            case IconButtonM3EVariant.tonal:
+              return scheme.secondaryContainer;
+          }
+        }),
+        foregroundColor: WidgetStateProperty.resolveWith((_) => fg),
+        side: WidgetStateProperty.resolveWith((_) => side),
+        // Animate pressed shape morph a bit.
+        animationDuration: IconButtonM3ETokens.morphDuration,
         visualDensity: VisualDensity.standard,
       ),
     );
 
-    // Draw a visual container for filled/tonal/outlined or when you want a visible background/border
-    final bool needsVisualContainer =
-        variant != IconButtonM3EVariant.standard ||
-            outline != null ||
-            visual < hit;
-    if (needsVisualContainer) {
-      core = Stack(
-        alignment: Alignment.center,
-        children: [
-          SizedBox(
-            width: visual,
-            height: visual,
-            child: DecoratedBox(
-              decoration: ShapeDecoration(
-                shape: shapeBorder.copyWith(
-                  side: outline != null
-                      ? BorderSide(width: tokens.outlineWidth, color: outline)
-                      : BorderSide.none,
-                ),
-                color: (variant == IconButtonM3EVariant.standard ||
-                        outline != null)
-                    ? Colors.transparent
-                    : bg,
-              ),
-            ),
-          ),
-          core,
-        ],
-      );
-    }
+    // Compose into an outer box sized to the minimum interactive target.
+    final Widget core = SizedBox(
+      width: target.width,
+      height: target.height,
+      child: Center(
+        child: SizedBox(
+          width: visual.width,
+          height: visual.height,
+          child: button,
+        ),
+      ),
+    );
 
     final semanticsText = semanticLabel ?? tooltip;
     return Semantics(
       button: true,
-      selected: isSelected ?? false,
+      selected: selected,
       label: semanticsText,
       child: core,
     );
