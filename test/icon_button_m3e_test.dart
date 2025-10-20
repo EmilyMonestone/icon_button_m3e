@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:icon_button_m3e/icon_button_m3e.dart';
@@ -19,7 +17,7 @@ void main() {
     ));
 
     final semantics = tester.getSemantics(find.byType(IconButtonM3E));
-    expect(semantics.flagsCollection.has(SemanticsFlag.isSelected), true);
+    expect(semantics.flagsCollection.hasSelectedState, true);
     expect(semantics.label, label);
   });
 
