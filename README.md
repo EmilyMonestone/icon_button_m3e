@@ -7,12 +7,13 @@ round/square shapes, toggle support, and guaranteed 48×48dp tap targets
 
 ## Highlights
 
-- **Expressive sizes**: XS=32, S=40, M=48, L=56, XL=64 (customizable)
-- **Variants**: standard, filled, tonal, outlined
-- **Shapes**: round (circle) or square (rounded rect)
-- **Toggle**: `isSelected` + `selectedIcon`
-- **A11y**: min 48×48dp hit target; semantics label/selected state
-- **Tokens**: ship `IconButtonM3ETokens` via `ThemeExtension`
+- Sizes: `M3EIconButtonSize` = XS, SM, MD, LG, XL
+- Widths: `M3EIconButtonWidth` = default, narrow, wide
+- Variants: standard, filled, tonal, outlined
+- Shapes: round (pill) or square (rounded rect)
+- Toggle: `isSelected` + `selectedIcon`
+- A11y: min 48×48dp hit target; semantics label/selected state
+- Tokens: centralized static values in `M3EIconButtonTokens` (no ThemeExtension)
 
 ## Install
 
@@ -29,7 +30,8 @@ import 'package:icon_button_m3e/icon_button_m3e.dart';
 
 IconButtonM3E(
   variant: IconButtonM3EVariant.filled,
-  size: IconButtonM3ESize.m,
+  size: M3EIconButtonSize.md,
+  width: M3EIconButtonWidth.defaultWidth,
   icon: const Icon(Icons.mic),
   tooltip: 'Start recording',
   onPressed: () {},
@@ -51,17 +53,30 @@ IconButtonM3E(
 );
 ```
 
-## Theming (Tokens)
+## Sizing
 
-```dart
-final theme = ThemeData(
-  useMaterial3: true,
-  colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-  extensions: const [
-    IconButtonM3ETokens.fallback(), // customize by copying and adjusting
-  ],
-);
-```
+- Visual container sizes come from tokens: `M3EIconButtonTokens.visual[size][width]`.
+- Minimum interactive target sizes come from `M3EIconButtonTokens.target[size][width]`.
+  - XS/SM enforce at least 48×48; others match their visual sizes.
+- Icon glyph sizes are in `M3EIconButtonTokens.icon[size]`.
+
+For example (default width):
+- XS: 32×32 visual, 48×48 target
+- SM: 40×40 visual, 48×48 target (SM wide: 52×48)
+- MD: 56×56
+- LG: 96×96
+- XL: 136×136
+
+## Colors and shapes
+
+- Colors are derived from your `ThemeData.colorScheme`:
+  - standard: transparent bg, onSurfaceVariant fg (selected uses primary)
+  - filled: primary bg, onPrimary fg
+  - tonal: secondaryContainer bg, onSecondaryContainer fg
+  - outlined: transparent bg, primary fg, outline border
+- Shapes: `M3EIconButtonShapeVariant.round` (pill) or `.square` (rounded square).
+  - Pressed state uses a shared, more-square radius per size.
+  - If used as a toggle, selected state flips round/square for expressive feel.
 
 ## Example
 
